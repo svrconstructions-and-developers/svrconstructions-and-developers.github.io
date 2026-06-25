@@ -41,6 +41,8 @@ jobs:
           npm ci
 
       - name: Build Client React App
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: |
           cd client
           npm run build
