@@ -36,6 +36,7 @@ export default function AdminDashboard() {
   const [adminChatForm, setAdminChatForm] = useState({ message: '' });
   const [projectChat, setProjectChat] = useState([]);
   const [projectImagesList, setProjectImagesList] = useState([]);
+  const [projectMilestonesList, setProjectMilestonesList] = useState([]);
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadImageType, setUploadImageType] = useState('ongoing');
 
@@ -222,12 +223,13 @@ export default function AdminDashboard() {
     }
   };
 
-  // Fetch chat and images for selected project
+  // Fetch chat, images, and milestones for selected project
   const fetchProgressDetails = async (projId) => {
     try {
       api.get(`/api/admin/projects-progress/${projId}`).then(details => {
         setProjectChat(details.data.messages || []);
         setProjectImagesList(details.data.images || []);
+        setProjectMilestonesList(details.data.milestones || []);
       }).catch(err => {
         console.log("No messages/images admin route yet.");
       });
@@ -503,7 +505,7 @@ export default function AdminDashboard() {
                         <th className="p-4">Name</th>
                         <th className="p-4">Email</th>
                         <th className="p-4">Phone / Company</th>
-                        <th className="p-4">Assigned Project</th>
+                        <th className="p-4">Assigned Project & Progress</th>
                         <th className="p-4 text-center">Actions</th>
                       </tr>
                     </thead>
@@ -517,22 +519,50 @@ export default function AdminDashboard() {
                             <div className="text-[10px] text-slate-500">{c.company || 'N/A'}</div>
                           </td>
                           <td className="p-4">
-                            <span className={`px-2.5 py-1 rounded text-[10px] font-semibold ${c.project_id ? 'bg-gold-500/10 text-gold-400 border border-gold-500/20' : 'bg-slate-800 text-slate-400'}`}>
-                              {c.project_name || 'Unassigned'}
-                            </span>
+                            {c.project_id ? (
+                              <div className="space-y-1.5">
+                                <span className="px-2.5 py-1 rounded text-[10px] font-semibold bg-gold-500/10 text-gold-400 border border-gold-500/20">
+                                  {c.project_name}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-20 bg-charcoal-950 rounded-full h-1.5 overflow-hidden border border-charcoal-850">
+                                    <div className="bg-gold-500 h-full rounded-full" style={{ width: `${c.project_percentage || 0}%` }}></div>
+                                  </div>
+                                  <span className="text-[10px] font-bold text-slate-400">{c.project_percentage || 0}%</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded text-[10px] font-semibold bg-slate-800 text-slate-400">
+                                Unassigned
+                              </span>
+                            )}
                           </td>
                           <td className="p-4">
-                            <div className="flex justify-center items-center gap-2">
+                            <div className="flex justify-center items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  if (c.project_id) {
+                                    handleProgressProjectSelect(c.project_id);
+                                    setActiveTab('progress');
+                                  } else {
+                                    showFeedback('error', `Please link a project to ${c.name} first before managing progress.`);
+                                  }
+                                }}
+                                className={`p-1.5 rounded-lg transition-luxury ${c.project_id ? 'text-slate-400 hover:text-gold-500 hover:bg-charcoal-800/40' : 'text-slate-600 cursor-not-allowed'}`}
+                                title={c.project_id ? "Manage Project Progress & Images" : "No Project Assigned"}
+                              >
+                                <Percent className="h-4 w-4" />
+                              </button>
                               <button
                                 onClick={() => setClientModal({ open: true, mode: 'edit', data: { id: c.id, name: c.name, email: c.email, phone: c.phone || '', company: c.company || '', projectId: c.project_id || '' } })}
-                                className="text-slate-400 hover:text-gold-500 p-1.5"
+                                className="text-slate-400 hover:text-gold-500 p-1.5 rounded-lg hover:bg-charcoal-800/40"
                                 title="Edit"
                               >
                                 <Edit2 className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => handleClientDelete(c.id)}
-                                className="text-slate-400 hover:text-red-500 p-1.5"
+                                className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-charcoal-800/40"
                                 title="Delete Client"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -713,6 +743,73 @@ export default function AdminDashboard() {
                           Upload Image File
                         </button>
                       </form>
+                    </div>
+
+                    {/* Uploaded Progress Gallery */}
+                    <div className="glass-panel p-5 rounded-2xl border border-charcoal-800 space-y-4">
+                      <h4 className="font-bold text-white text-sm flex items-center gap-2"><ImageIcon className="text-gold-500 h-4 w-4" /> Uploaded Photos</h4>
+                      {projectImagesList.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic">No progress images uploaded yet.</p>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[220px] overflow-y-auto pr-1">
+                          {projectImagesList.map((img) => (
+                            <div key={img.id} className="relative group rounded-xl overflow-hidden border border-charcoal-850 h-24">
+                              <img src={img.image_url} alt="Progress" className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-charcoal-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                <button
+                                  onClick={() => handleImageDelete(img.id)}
+                                  className="bg-red-500 text-white p-1.5 rounded-lg hover:bg-red-600 transition-luxury"
+                                  title="Delete Image"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                              <span className="absolute bottom-2 left-2 bg-charcoal-900/90 text-gold-500 font-extrabold text-[8px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-charcoal-800">
+                                {img.image_type}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Current Milestones List */}
+                    <div className="glass-panel p-5 rounded-2xl border border-charcoal-800 space-y-4">
+                      <h4 className="font-bold text-white text-sm flex items-center gap-2"><Percent className="text-gold-500 h-4 w-4" /> Current Milestone Log</h4>
+                      {projectMilestonesList.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic">No milestone stages logged yet.</p>
+                      ) : (
+                        <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                          {projectMilestonesList.map((m) => (
+                            <div key={m.id} className="flex justify-between items-start gap-4 p-3 bg-charcoal-950/40 rounded-xl border border-charcoal-850/60 text-xs">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-white">{m.stage}</span>
+                                  <span className="text-[10px] text-gold-500 bg-gold-500/5 px-2 py-0.2 rounded border border-gold-500/20 font-bold">{m.percentage}%</span>
+                                </div>
+                                <p className="text-slate-400 font-light text-[11px] leading-relaxed">{m.description || 'No description provided.'}</p>
+                              </div>
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm('Delete this milestone?')) return;
+                                  try {
+                                    await api.delete(`/api/admin/progress/${m.id}`);
+                                    showFeedback('success', 'Milestone deleted.');
+                                    fetchProgressDetails(selectedProgressProject);
+                                    loadAnalytics();
+                                  } catch (e) {
+                                    showFeedback('error', 'Failed to delete milestone.');
+                                  }
+                                }}
+                                className="text-slate-500 hover:text-red-400 p-1 hover:bg-charcoal-800 rounded"
+                                title="Delete Milestone"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
 

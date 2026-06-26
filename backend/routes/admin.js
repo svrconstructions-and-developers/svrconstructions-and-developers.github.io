@@ -83,7 +83,8 @@ async function logActivity(adminId, action, details) {
 router.get('/clients', async (req, res) => {
   try {
     const clients = await allQuery(`
-      SELECT u.id, u.name, u.email, u.phone, u.company, u.project_id, u.created_at, p.name as project_name 
+      SELECT u.id, u.name, u.email, u.phone, u.company, u.project_id, u.created_at, p.name as project_name,
+             (SELECT MAX(percentage) FROM project_progress WHERE project_id = u.project_id) as project_percentage
       FROM users u
       LEFT JOIN projects p ON u.project_id = p.id
       ORDER BY u.created_at DESC
@@ -271,7 +272,11 @@ router.get('/projects-progress/:id', async (req, res) => {
       'SELECT id, image_url, image_type, created_at FROM project_images WHERE project_id = ? ORDER BY created_at DESC',
       [id]
     );
-    res.json({ messages, images });
+    const milestones = await allQuery(
+      'SELECT id, stage, percentage, description, updated_at FROM project_progress WHERE project_id = ? ORDER BY percentage DESC',
+      [id]
+    );
+    res.json({ messages, images, milestones });
   } catch (error) {
     console.error('Error fetching project progress details:', error);
     res.status(500).json({ error: 'Server error retrieving progress details' });
